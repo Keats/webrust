@@ -4,7 +4,12 @@ version = "0.1.0"
 authors = ["Vincent Prouillet <vincent@wearewizards.io>"]
 
 [dependencies]
-rustful = "0.5"
+iron="*"
+persistent="*"
+router = "*"
 serde = "*"
 serde_json = "*"
 serde_macros = "*"
+postgres = "0.10"
+r2d2="*"
+r2d2_postgres="*"

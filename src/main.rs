@@ -2,55 +2,65 @@
 #![plugin(serde_macros)]
 
 #[macro_use]
-extern crate rustful;
+extern crate iron;
+extern crate persistent;
+extern crate postgres;
+extern crate r2d2;
+extern crate r2d2_postgres;
+extern crate router;
 extern crate serde;
 extern crate serde_json;
 
-use rustful::Method::{Get, Post};
-use std::io::{BufReader, Read};
-use std::error::Error;
-use rustful::{Server, Context, Response, Router, TreeRouter};
+use std::io::Read;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Password {
-    id: i32,
-    encrypted: String,
+use iron::prelude::*;
+use iron::status;
+use persistent::Read as PRead; // needed to disambiguate with std::io::Read
+use router::Router;
+
+mod db;
+mod dal;
+
+
+fn get_passwords(req: &mut Request) -> IronResult<Response> {
+    let pool = req.get::<PRead<db::PostgresDB>>().unwrap();
+    let conn = pool.get().unwrap();
+    match dal::list_passwords(conn) {
+        Ok(passwords) => {
+            let response_payload = serde_json::to_string(&passwords).unwrap();
+            Ok(Response::with((status::Ok, response_payload)))
+        },
+        Err(err) => {
+            println!("{:?}", err);
+            Ok(Response::with((status::InternalServerError)))
+        }
+    }
 }
 
+fn create_password(req: &mut Request) -> IronResult<Response> {
+    let mut payload = String::new();
+    req.body.read_to_string(&mut payload).unwrap();
+    let password: dal::Password = serde_json::from_str(&payload).unwrap();
 
-fn get_passwords(context: Context, response: Response) {
-    let password = Password { id: 1, encrypted: "erwerzxc".to_string() };
-    let payload = serde_json::to_string(&password).unwrap();
+    let response_payload = serde_json::to_string(&password).unwrap();
 
-    response.send(payload);
+    Ok(Response::with((status::Ok, response_payload)))
 }
 
-fn create_password(context: Context, response: Response) {
-    let mut buffer = String::new();
-    BufReader::new(context.body).read_to_string(&mut buffer).unwrap();
-    let password: Password = serde_json::from_str(&buffer).unwrap();
-    let payload = serde_json::to_string(&password).unwrap();
-
-    response.send(payload);
-}
 
 fn main() {
-    let mut router = TreeRouter::new();
-    // needed to avoid
-    // expected `fn(rustful::context::Context<'_, '_, '_>, rustful::response::Response<'_, '_>) {get_passwords}`,
-    // found `fn(rustful::context::Context<'_, '_, '_>, rustful::response::Response<'_, '_>) {create_password}
-    found `fn(rustful::context::Context<'_, '_, '_>, rustful::response::Response<'_, '_>) {create_password}`
-    router.insert(Get, &"passwords", get_passwords as fn(Context, Response));
-    router.insert(Post, &"passwords", create_password as fn(Context, Response));
+    let mut router = Router::new();
+    router.get("/passwords", get_passwords);
+    router.post("/passwords", create_password);
 
-    let server_result = Server {
-        host: 8080.into(),
-        handlers: router,
-        ..Server::default()
-    }.run();
+    let pool = db::get_pool("postgres://pg:pg@localhost:5432/safe");
 
-    match server_result {
-        Ok(_server) => {},
-        Err(e) => println!("could not start server: {}", e.description())
-    }
+    // Cleanup and set some seed data
+    db::setup_database(pool.get().unwrap());
+
+    let mut chain = Chain::new(router);
+    chain.link(PRead::<db::PostgresDB>::both(pool));
+
+    Iron::new(chain).http("localhost:5000").unwrap();
+    println!("Listening on 5000");
 }
