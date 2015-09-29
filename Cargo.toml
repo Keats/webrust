@@ -1,0 +1,10 @@
+[package]
+name = "restrust"
+version = "0.1.0"
+authors = ["Vincent Prouillet <vincent@wearewizards.io>"]
+
+[dependencies]
+rustful = "0.5"
+serde = "*"
+serde_json = "*"
+serde_macros = "*"
