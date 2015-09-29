@@ -12,7 +12,6 @@ pub struct PostgresDB;
 impl Key for PostgresDB { type Value = PostgresPool;}
 
 
-
 pub fn setup_database(conn: PostgresConnection) {
     conn.execute("DROP TABLE IF EXISTS passwords;", &[]).unwrap();
     conn.execute("CREATE TABLE passwords (id INT PRIMARY KEY, name VARCHAR(255), encrypted VARCHAR(255));", &[]).unwrap();

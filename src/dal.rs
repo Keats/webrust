@@ -23,3 +23,15 @@ pub fn list_passwords(conn: db::PostgresConnection) -> Result<Vec<Password>, Err
 
     Ok(passwords)
 }
+
+pub fn create_password(conn: db::PostgresConnection, password: Password) -> Result<(), Error> {
+    // try! doesn't work somehow
+    //  expected `core::result::Result<(), u64>`, found `u64`
+    match conn.execute(
+        "INSERT INTO passwords VALUES ($1, $2, $3);",
+        &[&password.id, &password.name, &password.encrypted]
+    ) {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
+    }
+}

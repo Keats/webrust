@@ -25,13 +25,14 @@ mod dal;
 fn get_passwords(req: &mut Request) -> IronResult<Response> {
     let pool = req.get::<PRead<db::PostgresDB>>().unwrap();
     let conn = pool.get().unwrap();
+
     match dal::list_passwords(conn) {
         Ok(passwords) => {
             let response_payload = serde_json::to_string(&passwords).unwrap();
             Ok(Response::with((status::Ok, response_payload)))
         },
-        Err(err) => {
-            println!("{:?}", err);
+        Err(e) => {
+            println!("Errored: {:?}", e);
             Ok(Response::with((status::InternalServerError)))
         }
     }
@@ -42,9 +43,16 @@ fn create_password(req: &mut Request) -> IronResult<Response> {
     req.body.read_to_string(&mut payload).unwrap();
     let password: dal::Password = serde_json::from_str(&payload).unwrap();
 
-    let response_payload = serde_json::to_string(&password).unwrap();
+    let pool = req.get::<PRead<db::PostgresDB>>().unwrap();
+    let conn = pool.get().unwrap();
 
-    Ok(Response::with((status::Ok, response_payload)))
+    match dal::create_password(conn, password) {
+        Ok(_) => Ok(Response::with((status::Created))),
+        Err(e) => {
+            println!("Errored: {:?}", e);
+            Ok(Response::with((status::InternalServerError)))
+        }
+    }
 }
 
 
