@@ -23,6 +23,16 @@ mod db;
 mod dal;
 
 
+macro_rules! try_or_500 {
+    ($expr:expr) => (match $expr {
+        Ok(val) => val,
+        Err(e) => {
+            println!("Errored: {:?}", e);
+            return Ok(Response::with((status::InternalServerError)))
+        }
+    })
+}
+
 fn get_passwords(req: &mut Request) -> IronResult<Response> {
     let conn = get_pg_connection!(req);
     match dal::list_passwords(conn) {
@@ -39,8 +49,8 @@ fn get_passwords(req: &mut Request) -> IronResult<Response> {
 
 fn create_password(req: &mut Request) -> IronResult<Response> {
     let mut payload = String::new();
-    req.body.read_to_string(&mut payload).unwrap();
-    let password: dal::Password = serde_json::from_str(&payload).unwrap();
+    try_or_500!(req.body.read_to_string(&mut payload));
+    let password: dal::Password  = try_or_500!(serde_json::from_str(&payload));
 
     let conn = get_pg_connection!(req);
 
