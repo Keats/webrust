@@ -37,7 +37,7 @@ fn get_passwords(req: &mut Request) -> IronResult<Response> {
     let conn = get_pg_connection!(req);
     match dal::list_passwords(conn) {
         Ok(passwords) => {
-            let response_payload = serde_json::to_string(&passwords).unwrap();
+            let response_payload = try_or_500!(serde_json::to_string(&passwords));
             Ok(Response::with((status::Ok, response_payload)))
         },
         Err(e) => {
