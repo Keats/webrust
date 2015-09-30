@@ -18,14 +18,13 @@ use iron::status;
 use persistent::Read as PRead; // needed to disambiguate with std::io::Read
 use router::Router;
 
+#[macro_use]
 mod db;
 mod dal;
 
 
 fn get_passwords(req: &mut Request) -> IronResult<Response> {
-    let pool = req.get::<PRead<db::PostgresDB>>().unwrap();
-    let conn = pool.get().unwrap();
-
+    let conn = get_pg_connection!(req);
     match dal::list_passwords(conn) {
         Ok(passwords) => {
             let response_payload = serde_json::to_string(&passwords).unwrap();
@@ -43,8 +42,7 @@ fn create_password(req: &mut Request) -> IronResult<Response> {
     req.body.read_to_string(&mut payload).unwrap();
     let password: dal::Password = serde_json::from_str(&payload).unwrap();
 
-    let pool = req.get::<PRead<db::PostgresDB>>().unwrap();
-    let conn = pool.get().unwrap();
+    let conn = get_pg_connection!(req);
 
     match dal::create_password(conn, password) {
         Ok(_) => Ok(Response::with((status::Created))),
